@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0","cupy","numpy","scipy","sklearn"]
+build-backend = "setuptools.build_meta"
+
+[project] 
+name = "tridge_aahilgert"
+version = "0.0.1"
+authors = [
+    { name="Arthur Ayestas Hilgert", email="aahilgert@gmail.com"},
+]
+description = "tuning-free parameter ridge regression library with GPU utilization"
+license = { file="LICENSE"}
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
