@@ -1,0 +1,9 @@
+LICENSE
+README.md
+pyproject.toml
+src/tridge_aahilgert/__init__.py
+src/tridge_aahilgert/tridge.py
+src/tridge_aahilgert.egg-info/PKG-INFO
+src/tridge_aahilgert.egg-info/SOURCES.txt
+src/tridge_aahilgert.egg-info/dependency_links.txt
+src/tridge_aahilgert.egg-info/top_level.txt
