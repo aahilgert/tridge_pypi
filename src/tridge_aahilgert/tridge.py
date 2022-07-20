@@ -456,7 +456,8 @@ class GaussianRegressor:
         GlmTrex_estimators = optim_ObFn(param_1,x,y,self.family,self.trex_vec)
 
         edr_lambda = norm(GradientLs(GlmTrex_estimators,x,y,self.family)) / (2 * norm(GlmTrex_estimators))
-
+        self.edr_lambda = edr_lambda
+        
         r_max = edr_lambda + self.c
         r_min = max(self.lambda_min, (edr_lambda - self.c))
 
@@ -507,6 +508,11 @@ class GaussianRegressor:
         self.best_lambda = self.lambdas[self.xp.argmin(costs)]
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
+        
+    def predict(X):
+        if not self.coef_:
+            raise ValueError('The regressor has not must be fit before prediction.')
+        return X@self.coef_
         
         
 class BinomialRegressor:
@@ -610,6 +616,11 @@ class BinomialRegressor:
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
         
+    def predict(X):
+        if not self.coef_:
+            raise ValueError('The regressor has not must be fit before prediction.')
+        return self.xp.exp(X@self.coef_)/(1+self.xp.exp(X@self.coef_))
+        
         
 class PoissonRegressor:
     
@@ -709,3 +720,8 @@ class PoissonRegressor:
         self.best_lambda = self.lambdas[self.xp.argmin(costs)]
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
+        
+    def predict(X):
+        if not self.coef_:
+            raise ValueError('The regressor has not must be fit before prediction.')
+        return self.xp.exp(X@self.coef_)
