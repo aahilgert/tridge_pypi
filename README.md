@@ -2,6 +2,16 @@
 
 The Tridge package allows tuning free ridge regression under gaussian, binomial, and poisson distributions.
 
+## Dependencies
+
+`tridge` requires:
+
+- Python (>= 3.8)
+- NumPy (>= 1.17.3)
+- Cupy (>= 10.0.0)
+- Sklearn (>= 1.0.0)
+- Scipy (>= 1.3)
+
 ### GaussianRegressor
 
 #### Parameters:
