@@ -67,7 +67,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import GaussianRegressor
+>>> from tridge import GaussianRegressor
 >>> clf = GaussianRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -76,7 +76,7 @@ from tridge import GaussianRegressor
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import GaussianRegressor
+>>> from tridge import GaussianRegressor
 >>> clf = GaussianRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
@@ -90,7 +90,7 @@ from tridge import GaussianRegressor
 If the model has not been already fit, returns value error.
 
 ```
-from tridge import GaussianRegressor
+>>> from tridge import GaussianRegressor
 >>> clf = GaussianRegressor()
 >>> clf.fit(X, y)
 >>> clf.predict(X_pred)
@@ -153,7 +153,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import BinomialRegressor
+>>> from tridge import BinomialRegressor
 >>> clf = BinomialRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -162,7 +162,7 @@ from tridge import BinomialRegressor
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import BinomialRegressor
+>>> from tridge import BinomialRegressor
 >>> clf = BinomialRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
@@ -176,7 +176,7 @@ from tridge import BinomialRegressor
 If the model has not been already fit, returns value error.
 
 ```
-from tridge import BinomialRegressor
+>>> from tridge import BinomialRegressor
 >>> clf = BinomialRegressor()
 >>> clf.fit(X, y)
 >>> clf.predict(X_pred)
@@ -239,7 +239,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import PoissonRegressor
+>>> from tridge import PoissonRegressor
 >>> clf = PoissonRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -248,7 +248,7 @@ from tridge import PoissonRegressor
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
-from tridge import PoissonRegressor
+>>> from tridge import PoissonRegressor
 >>> clf = PoissonRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
@@ -262,7 +262,7 @@ from tridge import PoissonRegressor
 If the model has not been already fit, returns value error.
 
 ```
-from tridge import PoissonRegressor
+>>> from tridge import PoissonRegressor
 >>> clf = PoissonRegressor()
 >>> clf.fit(X, y)
 >>> clf.predict(X_pred)
