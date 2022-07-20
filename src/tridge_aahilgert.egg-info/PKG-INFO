@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tridge-aahilgert
-Version: 0.0.1
+Version: 0.0.2
 Summary: tuning-free parameter ridge regression library with GPU utilization
 Author-email: Arthur Ayestas Hilgert <aahilgert@gmail.com>
 License:                     GNU GENERAL PUBLIC LICENSE
