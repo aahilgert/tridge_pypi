@@ -1,6 +1,6 @@
 # tridge_pypi
 
-The Tridge package allows for examination of 
+The Tridge package allows tuning free ridge regression under gaussian, binomial, and poisson distributions.
 
 ### GaussianRegressor
 
@@ -57,6 +57,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import GaussianRegressor
 >>> clf = GaussianRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -65,12 +66,25 @@ Coefficients of selected estimator.
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import GaussianRegressor
 >>> clf = GaussianRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
 >>> clf.lambdas # candidate lambdas
 >>> clf.best_cost # cost of chosen candidate lambda
 >>> clf.best_lambda # candidate lambda of best cost
+```
+
+##### predict(X : ndarray of shape (float,n_features))
+
+If the model has not been already fit, returns value error.
+
+```
+from tridge import GaussianRegressor
+>>> clf = GaussianRegressor()
+>>> clf.fit(X, y)
+>>> clf.predict(X_pred)
+# returns prediction
 ```
 
 
@@ -129,6 +143,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import BinomialRegressor
 >>> clf = BinomialRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -137,12 +152,25 @@ Coefficients of selected estimator.
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import BinomialRegressor
 >>> clf = BinomialRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
 >>> clf.lambdas # candidate lambdas
 >>> clf.best_cost # cost of chosen candidate lambda
 >>> clf.best_lambda # candidate lambda of best cost
+```
+
+##### predict(X : ndarray of shape (float,n_features))
+
+If the model has not been already fit, returns value error.
+
+```
+from tridge import BinomialRegressor
+>>> clf = BinomialRegressor()
+>>> clf.fit(X, y)
+>>> clf.predict(X_pred)
+# returns prediction
 ```
 
 
@@ -201,6 +229,7 @@ Coefficients of selected estimator.
 ##### gen_lambdas(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import PoissonRegressor
 >>> clf = PoissonRegressor()
 >>> clf.gen_lambdas(X, y)
 >>> clf.lambdas # candidate lambdas
@@ -209,10 +238,23 @@ Coefficients of selected estimator.
 ##### fit(X : ndarray of shape (n_samples,n_features), y : ndarray of shape (n_samples,))
 
 ```
+from tridge import PoissonRegressor
 >>> clf = PoissonRegressor()
 >>> clf.fit(X, y)
 >>> clf.coef_ # will return estimator
 >>> clf.lambdas # candidate lambdas
 >>> clf.best_cost # cost of chosen candidate lambda
 >>> clf.best_lambda # candidate lambda of best cost
+```
+
+##### predict(X : ndarray of shape (float,n_features))
+
+If the model has not been already fit, returns value error.
+
+```
+from tridge import PoissonRegressor
+>>> clf = PoissonRegressor()
+>>> clf.fit(X, y)
+>>> clf.predict(X_pred)
+# returns prediction
 ```
