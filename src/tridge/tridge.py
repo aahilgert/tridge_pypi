@@ -1,3 +1,4 @@
+import time
 from sklearn.linear_model import Ridge, LogisticRegression
 import numpy as np
 import cupy as cp
@@ -386,11 +387,33 @@ def sklearn_ridge_binomial(lamb, x, y):
     est.fit(x, y)
     return est.coef_.reshape(x.shape[1],)
 
+def scale_x(x):
+    xp = get_xp(x)
+    return x / xp.linalg.norm(x, 2, axis=0)
+
+
+def give_proper(xp, x):
+    if xp == get_xp(x):
+        return x
+    elif xp == np:
+        return cp.asnumpy(x.get())
+    else:
+        return cp.asarray(x)
+
 
 class GaussianRegressor:
     
-    def __init__(self,nlambda=100,lambda_min=0.05,c=5,nfolds=10,processor=None,r_type=None,function=None):
-        
+    def __init__(
+        self,
+        nlambda=100,
+        lambda_min=0.05,
+        c=5,nfolds=10,
+        scale=True,
+        processor=None,
+        r_type=None,
+        function=None
+    ):
+        self.scale = scale
         self.family = "gaussian"
         self.nlambda = nlambda
         self.lambda_min = lambda_min
@@ -420,29 +443,18 @@ class GaussianRegressor:
             
     def gen_lambdas(self, x, y):
         
-        if self.xp == cp:
-            if get_xp(x) == np: 
-                self.x = cp.asarray(x)
-            else:
-                self.x = x
-            if get_xp(y) == np:
-                self.y = cp.asarray(y)
-            else:
-                self.y = y
-        else:
-            if get_xp(x) == cp: 
-                self.x = cp.asnumpy(x.get())
-            else:
-                self.x = x
-            if get_xp(y) == cp:
-                self.y = cp.asnumpy(y.get())
-            else:
-                self.y = y
+        if self.scale:
+            x = scale_x(x)
+        
+        self.x = give_proper(self.xp,x)
+        self.y = give_proper(self.xp,y)
         
         if get_xp(x) == cp: 
             x = cp.asnumpy(x.get())
         if get_xp(y) == cp:
             y = cp.asnumpy(y.get())
+            
+        self.time_start = time.time()
     
         norm = lambda a : np.linalg.norm(a,ord=2)
 
@@ -486,12 +498,12 @@ class GaussianRegressor:
                 D_2 = d@d
                 R = u@d
                 RTR = R.T@R
-                RTY = R.T@y
+                RTY = R.T@self.y
                 function = lambda a : v.T@inv(D_2 + a*IN)@RTY
             else:
                 XXT = self.x@self.x.T
-                XTY = self.x.T@y
-                XXTY = XXT@y
+                XTY = self.x.T@self.y
+                XXTY = XXT@self.y
                 function = lambda a : XTY/a - (self.x.T@(inv(IN + XXT/a) @ XXTY)) / (a**2)
                 
         elif self.r_type == "sklearn":
@@ -509,16 +521,85 @@ class GaussianRegressor:
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
         
+        self.time_end = time.time()
+        
     def predict(X):
+        X = give_proper(self.xp, X)
         if not self.coef_:
-            raise ValueError('The regressor has not must be fit before prediction.')
-        return X@self.coef_
+            raise ValueError('The regressor must be fit before prediction.')
+        return scale_x(X)@self.coef_ if self.scale else X@self.coef_
+    
+    def init_analysis(self,true_beta,sigma,SNR):
+        self.true_beta = give_proper(self.xp, true_beta)
+        self.sigma = give_proper(self.xp, sigma)
+        self.SNR = SNR
+    
+    def relative_risk(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return beta_diff/beta_sig
+    
+    def relative_test_error(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1+self.SNR*beta_diff/beta_sig
+        
+    def prop_var_explained(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1-(beta_diff+beta_sig/self.SNR)/(beta_sig+beta_sig/self.SNR)
+    
+    def beta_error(self):
+        return self.coef_ - self.true_beta
+    
+    def prediction_error(self):
+        return self.x@self.beta_error()
+    
+    def corr(self):
+        return self.xp.corrcoef(self.x@self.coef_,self.x@self.true_beta)[0,1]
+    
+    def full_analysis(self,true_beta,sigma,SNR):
+        self.init_analysis(true_beta,sigma,SNR)
+        
+        norm_l2 = lambda b : self.xp.linalg.norm(b)/self.xp.sqrt(self.x.shape[0])
+        
+        return {
+            "family": self.family,
+            "algorithm": self.processor+"_"+self.r_type,
+            "n": self.x.shape[0],
+            "p": self.x.shape[1],
+            "relative risk": norm_l2(self.relative_risk()),
+            "relative test error gaussian": norm_l2(self.relative_test_error()),
+            "proportion of variance explained gaussian": norm_l2(self.prop_var_explained()),
+            "relative test error": norm_l2(self.relative_test_error()),
+            "proportion of variance explained": norm_l2(self.prop_var_explained()),
+            "beta error": norm_l2(self.beta_error()),
+            "prediction error": norm_l2(self.prediction_error()),
+            "relative beta error": self.xp.linalg.norm(self.beta_error())/self.xp.linalg.norm(self.true_beta),
+            "relative prediction error": self.xp.linalg.norm(self.prediction_error())/self.xp.linalg.norm(self.x @ self.true_beta),
+            "corr": self.corr(),
+            "time": self.time_end - self.time_start
+        }
         
         
 class BinomialRegressor:
     
-    def __init__(self,nlambda=100,lambda_min=0.05,c=5,nfolds=10,processor=None,r_type=None,function=None):
+    def __init__(
+        self,
+        nlambda=100,
+        lambda_min=0.05,
+        c=5,
+        nfolds=10,
+        scale=True,
+        processor=None,
+        r_type=None,
+        function=None
+    ):
         
+        self.scale = scale
         self.family = "binomial"
         self.nlambda = nlambda
         self.lambda_min = lambda_min
@@ -546,29 +627,18 @@ class BinomialRegressor:
             
     def gen_lambdas(self, x, y):
         
-        if self.xp == cp:
-            if get_xp(x) == np: 
-                self.x = cp.asarray(x)
-            else:
-                self.x = x
-            if get_xp(y) == np:
-                self.y = cp.asarray(y)
-            else:
-                self.y = y
-        else:
-            if get_xp(x) == cp: 
-                self.x = cp.asnumpy(x.get())
-            else:
-                self.x = x
-            if get_xp(y) == cp:
-                self.y = cp.asnumpy(y.get())
-            else:
-                self.y = y
+        if self.scale:
+            x = scale_x(x)
+        
+        self.x = give_proper(self.xp,x)
+        self.y = give_proper(self.xp,y)
         
         if get_xp(x) == cp: 
             x = cp.asnumpy(x.get())
         if get_xp(y) == cp:
             y = cp.asnumpy(y.get())
+            
+        self.time_start = time.time()
     
         norm = lambda a : np.linalg.norm(a,ord=2)
 
@@ -616,16 +686,97 @@ class BinomialRegressor:
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
         
+        self.time_end = time.time()
+        
     def predict(X):
+        X = give_proper(self.xp, X)
         if not self.coef_:
-            raise ValueError('The regressor has not must be fit before prediction.')
-        return self.xp.exp(X@self.coef_)/(1+self.xp.exp(X@self.coef_))
+            raise ValueError('The regressor must be fit before prediction.')
+        return self.xp.exp(scale_x(X)@self.coef_)/(1+self.xp.exp(scale_x(X)@self.coef_)) if self.scale else self.xp.exp(X@self.coef_)/(1+self.xp.exp(X@self.coef_))
+    
+    def init_analysis(self,true_beta,sigma,SNR):
+        self.true_beta = give_proper(self.xp, true_beta)
+        self.sigma = give_proper(self.xp, sigma)
+        self.SNR = SNR
+    
+    def relative_risk(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return beta_diff/beta_sig
+    
+    def relative_test_error_gaus(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1+self.SNR*beta_diff/beta_sig
+        
+    def prop_var_explained_gaus(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1-(beta_diff+beta_sig/self.SNR)/(beta_sig+beta_sig/self.SNR)
+    
+    def relative_test_error(self):
+        beta = self.coef_
+        true_beta_trans = 1/(1+self.xp.exp(-self.x@self.true_beta))
+        beta_trans = 1/(1+self.xp.exp(-self.x@beta))
+        return (((true_beta_trans-beta_trans)**2) +  (true_beta_trans/self.SNR)*(1-true_beta_trans)) / ((true_beta_trans/self.SNR)*(1-true_beta_trans/self.SNR))
+        
+    def prop_var_explained(self):
+        beta = self.coef_
+        true_beta_trans = 1/(1+self.xp.exp(-self.x@self.true_beta))
+        beta_trans = 1/(1+self.xp.exp(-self.x@beta))
+        return 1 - (((true_beta_trans-beta_trans)**2) +  (true_beta_trans/self.SNR)*(1-true_beta_trans)) / ((true_beta_trans*(1-true_beta_trans))  +((true_beta_trans/self.SNR)*(1-true_beta_trans/self.SNR)))
+    
+    def beta_error(self):
+        return self.coef_ - self.true_beta
+    
+    def prediction_error(self):
+        return self.x@self.beta_error()
+    
+    def corr(self):
+        return self.xp.corrcoef(self.x@self.coef_,self.x@self.true_beta)[0,1]
+    
+    def full_analysis(self,true_beta,sigma,SNR):
+        self.init_analysis(true_beta,sigma,SNR)
+        
+        norm_l2 = lambda b : self.xp.linalg.norm(b)/self.xp.sqrt(self.x.shape[0])
+        
+        return {
+            "family": self.family,
+            "algorithm": self.processor+"_"+self.r_type,
+            "n": self.x.shape[0],
+            "p": self.x.shape[1],
+            "relative risk": norm_l2(self.relative_risk()),
+            "relative test error gaussian": norm_l2(self.relative_test_error_gaus()),
+            "proportion of variance explained gaussian": norm_l2(self.prop_var_explained_gaus()),
+            "relative test error": norm_l2(self.relative_test_error()),
+            "proportion of variance explained": norm_l2(self.prop_var_explained()),
+            "beta error": norm_l2(self.beta_error()),
+            "prediction error": norm_l2(self.prediction_error()),
+            "relative beta error": self.xp.linalg.norm(self.beta_error())/self.xp.linalg.norm(self.true_beta),
+            "relative prediction error": self.xp.linalg.norm(self.prediction_error())/self.xp.linalg.norm(self.x @ self.true_beta),
+            "corr": self.corr(),
+            "time": self.time_end - self.time_start
+        }
         
         
 class PoissonRegressor:
     
-    def __init__(self,nlambda=100,lambda_min=0.05,c=5,nfolds=10,processor=None,r_type=None,function=None):
+    def __init__(
+        self,
+        nlambda=100,
+        lambda_min=0.05,
+        c=5,
+        scale=True,
+        nfolds=10,
+        processor=None,
+        r_type=None,
+        function=None
+    ):
         
+        self.scale = scale
         self.family = "poisson"
         self.nlambda = nlambda
         self.lambda_min = lambda_min
@@ -653,29 +804,18 @@ class PoissonRegressor:
             
     def gen_lambdas(self, x, y):
         
-        if self.xp == cp:
-            if get_xp(x) == np: 
-                self.x = cp.asarray(x)
-            else:
-                self.x = x
-            if get_xp(y) == np:
-                self.y = cp.asarray(y)
-            else:
-                self.y = y
-        else:
-            if get_xp(x) == cp: 
-                self.x = cp.asnumpy(x.get())
-            else:
-                self.x = x
-            if get_xp(y) == cp:
-                self.y = cp.asnumpy(y.get())
-            else:
-                self.y = y
+        if self.scale:
+            x = scale_x(x)
+        
+        self.x = give_proper(self.xp,x)
+        self.y = give_proper(self.xp,y)
         
         if get_xp(x) == cp: 
             x = cp.asnumpy(x.get())
         if get_xp(y) == cp:
             y = cp.asnumpy(y.get())
+            
+        self.time_start = time.time()
     
         norm = lambda a : np.linalg.norm(a,ord=2)
 
@@ -721,7 +861,77 @@ class PoissonRegressor:
         self.best_cost = self.xp.min(costs)
         self.coef_ = estimators[self.xp.argmin(costs)]
         
+        self.time_end = time.time()
+        
     def predict(X):
+        X = give_proper(self.xp, X)
         if not self.coef_:
-            raise ValueError('The regressor has not must be fit before prediction.')
-        return self.xp.exp(X@self.coef_)
+            raise ValueError('The regressor must be fit before prediction.')
+        return self.xp.exp(scale_x(X)@self.coef_) if self.scale else self.xp.exp(X@self.coef_)
+    
+    def init_analysis(self,true_beta,sigma,SNR):
+        self.true_beta = give_proper(self.xp, true_beta)
+        self.sigma = give_proper(self.xp, sigma)
+        self.SNR = SNR
+
+    def relative_risk(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return beta_diff/beta_sig
+    
+    def relative_test_error_gaus(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1+self.SNR*beta_diff/beta_sig
+        
+    def prop_var_explained_gaus(self):
+        beta = self.coef_
+        beta_diff = (beta-self.true_beta)@self.sigma@(beta-self.true_beta)
+        beta_sig = self.true_beta@self.sigma@self.true_beta
+        return 1-(beta_diff+beta_sig/self.SNR)/(beta_sig+beta_sig/self.SNR)
+    
+    def relative_test_error(self):
+        beta = self.coef_
+        true_beta_trans = self.xp.exp(self.x@self.true_beta)
+        beta_trans = self.xp.exp(self.x@beta)
+        return (((true_beta_trans-beta_trans)**2) + (true_beta_trans/self.SNR)*(1-true_beta_trans)) / ((true_beta_trans/self.SNR)*(1-true_beta_trans/self.SNR))
+        
+    def prop_var_explained(self):
+        beta = self.coef_
+        true_beta_trans = self.xp.exp(self.x@self.true_beta)
+        beta_trans = self.xp.exp(-self.x@beta)
+        return 1 - (((true_beta_trans-beta_trans)**2) + (true_beta_trans/self.SNR)) / (true_beta_trans  + (true_beta_trans/self.SNR))
+    
+    def beta_error(self):
+        return self.coef_ - self.true_beta
+    
+    def prediction_error(self):
+        return self.x@self.beta_error()
+    
+    def corr(self):
+        return self.xp.corrcoef(self.x@self.coef_,self.x@self.true_beta)[0,1]
+    
+    def full_analysis(self,true_beta,sigma,SNR):
+        self.init_analysis(true_beta,sigma,SNR)
+        
+        norm_l2 = lambda b : self.xp.linalg.norm(b)/self.xp.sqrt(self.x.shape[0])
+        
+        return {
+            "family": self.family,
+            "algorithm": self.processor+"_"+self.r_type,
+            "n": self.x.shape[0],
+            "p": self.x.shape[1],
+            "relative risk": norm_l2(self.relative_risk()),
+            "relative test error gaussian": norm_l2(self.relative_test_error_gaus()),
+            "proportion of variance explained gaussian": norm_l2(self.prop_var_explained_gaus()),
+            "relative test error": norm_l2(self.relative_test_error()),
+            "proportion of variance explained": norm_l2(self.prop_var_explained()),
+            "beta error": norm_l2(self.beta_error()),
+            "prediction error": norm_l2(self.prediction_error()),
+            "relative beta error": self.xp.linalg.norm(self.beta_error())/self.xp.linalg.norm(self.true_beta),
+            "relative prediction error": self.xp.linalg.norm(self.prediction_error())/self.xp.linalg.norm(self.x @ self.true_beta),
+            "corr": self.corr(),
+            "time": self.time_end - self.time_start
+        }

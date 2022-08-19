@@ -1,0 +1,9 @@
+LICENSE
+README.md
+pyproject.toml
+src/tridge/__init__.py
+src/tridge/tridge.py
+src/tridge.egg-info/PKG-INFO
+src/tridge.egg-info/SOURCES.txt
+src/tridge.egg-info/dependency_links.txt
+src/tridge.egg-info/top_level.txt
