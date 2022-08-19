@@ -97,6 +97,17 @@ If the model has not been already fit, returns value error.
 # returns prediction
 ```
 
+#### Example usage with real data
+
+```
+>>> from tridge import GaussianRegressor
+>>> import sklearn
+>>> X, y = sklearn.datasets.load_diabetes(return_X_y=True)
+>>> clf = GaussianRegressor()
+>>> clf.fit(X, y)
+>>> clf.coef_
+# returns estimator coefficients
+```
 
 ### BinomialRegressor
 
@@ -260,6 +271,7 @@ Coefficients of selected estimator.
 ##### predict(X : ndarray of shape (float,n_features))
 
 If the model has not been already fit, returns value error.
+
 
 ```
 >>> from tridge import PoissonRegressor
